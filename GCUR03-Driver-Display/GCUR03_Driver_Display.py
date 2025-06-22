@@ -1,11 +1,15 @@
 from PyQt5.QtCore import (QCoreApplication, QMetaObject, QObject, QPoint,
-    QRect, QSize, QUrl, Qt, QTimer)
+    QRect, QSize, QUrl, Qt, QTimer, QPropertyAnimation)
 from PyQt5 import QtCore
 from PyQt5.QtGui import (QBrush, QColor, QConicalGradient, QCursor, QFont,
     QFontDatabase, QIcon, QLinearGradient, QPalette, QPainter, QPixmap,
     QRadialGradient)
+from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
+from PyQt5.QtMultimediaWidgets import QVideoWidget
 from PyQt5.QtWidgets import *
 import time
+import pandas as pd
+import sys, os, vlc
 
 oilTemp = 90
 oilPress = 40
@@ -21,7 +25,65 @@ minutesRT = 0
 secondsRT = 0
 
 
+class SplashVideo(QWidget):
+    def __init__(self, on_finished):
+        super().__init__()
 
+        self.setWindowFlags(Qt.FramelessWindowHint)
+        self.setGeometry(100, 100, 800, 480)  # Adjust size as needed
+
+        layout = QVBoxLayout(self)
+        self.setLayout(layout)
+
+        self.video_frame = QWidget(self)
+        layout.addWidget(self.video_frame)
+
+        # Setup VLC instance and player
+        self.instance = vlc.Instance()
+        self.player = self.instance.media_player_new()
+
+        video_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "media", "Intro.mp4")
+        media = self.instance.media_new(video_path)
+        self.player.set_media(media)
+
+        # Embed video in widget (platform-specific)
+        if sys.platform.startswith("linux"):
+            self.player.set_xwindow(self.video_frame.winId())
+        elif sys.platform == "win32":
+            self.player.set_hwnd(self.video_frame.winId())
+        elif sys.platform == "darwin":
+            self.player.set_nsobject(int(self.video_frame.winId()))
+
+        # Connect finished handler
+        self.on_finished = on_finished
+        self.opacity_effect = QGraphicsOpacityEffect(self)
+        self.setGraphicsEffect(self.opacity_effect)
+        self.opacity_effect.setOpacity(1)
+
+        self.show()
+        self.player.play()
+
+        # Start timer to monitor playback
+        self.check_timer = QTimer(self)
+        self.check_timer.timeout.connect(self.check_finished)
+        self.check_timer.start(500)
+
+    def check_finished(self):
+        if self.player.get_state() == vlc.State.Ended:
+            self.check_timer.stop()
+            self.fade_out()
+
+    def fade_out(self):
+        self.anim = QPropertyAnimation(self.opacity_effect, b"opacity")
+        self.anim.setDuration(1000)
+        self.anim.setStartValue(1.0)
+        self.anim.setEndValue(0.0)
+        self.anim.finished.connect(self.finish)
+        self.anim.start()
+
+    def finish(self):
+        self.on_finished()
+        self.close()
 
 
 class Ui_MainWindow(object):
@@ -65,6 +127,7 @@ class Ui_MainWindow(object):
         self.gearLabel.setStyleSheet(u"color:white;\n"
 "font: 110pt \"Formula1\";\n"
 "")
+        
         self.gearLabel.setTextFormat(Qt.PlainText)
         self.gearLabel.setAlignment(Qt.AlignCenter)
         self.speedContainer = QFrame(self.DriverDisplay)
@@ -139,7 +202,7 @@ class Ui_MainWindow(object):
         self.label = QLabel(self.DriverDisplay)
         self.label.setObjectName(u"label")
         self.label.setGeometry(QRect(10, 440, 41, 41))
-        self.label.setPixmap(QPixmap(u"gcu-racing-logo.jpeg"))
+        self.label.setPixmap(QPixmap(u"images/gcu-racing-logo.jpeg"))
         self.label.setScaledContents(True)
         self.label_2 = QLabel(self.DriverDisplay)
         self.label_2.setObjectName(u"label_2")
@@ -343,10 +406,10 @@ class Ui_MainWindow(object):
         timer2 = QTimer(MainWindow)
  
         # adding action to timer
-        timer2.timeout.connect(self.cycleVariables)
+        timer2.timeout.connect(self.updateVariables)
  
         # update the timer every tenth second
-        timer2.start(300)
+        timer2.start(1)
         
         #MainWindow.showFullScreen() 
 
@@ -396,41 +459,38 @@ class Ui_MainWindow(object):
         # showing text
         self.speedLabel_36.setText("{0:02}".format(minutesRT) + "." + "{0:02}".format(secondsRT) + ":" + "{0:03}".format(self.count))
         
-    def cycleVariables(self):
+    def updateVariables(self):
         global oilTemp, oilPress, fuelTemp, coolantTemp, tyrePressFL, tyrePressFR, tyrePressRL, tyrePressRR
         
-        oilTemp += 5
-        oilPress -= 5
-        fuelTemp += 5
-        coolantTemp += 5
-        tyrePressFR -= 3
-        tyrePressRR -= 3
-        tyrePressRL -= 3
-        tyrePressFL -= 3
+        poilTemp =  oilTemp
+        poilPress = oilPress
+        pfuelTemp = fuelTemp
+        pcoolantTemp = coolantTemp
+        ptyrePressFR = tyrePressFR
+        ptyrePressRR = tyrePressRR
+        ptyrePressRL = tyrePressRL
+        ptyrePressFL = tyrePressFL
         
-        if (oilTemp == 150):
-            oilTemp = 90
-           
-        if (oilPress == 10):
-            oilPress = 40
-            
-        if (fuelTemp == 90):
-            fuelTemp = 40
-            
-        if (coolantTemp == 130):
-            coolantTemp = 75
-           
-        if (tyrePressFL <= 5):
-            tyrePressFL = 30
-            
-        if (tyrePressRL <= 5):
-            tyrePressRL = 30
-            
-        if (tyrePressFR <= 5):
-            tyrePressFR = 30
-            
-        if (tyrePressRR <= 5):
-            tyrePressRR = 30
+        try:
+            dataDF = pd.read_csv("displayData.csv")
+            oilTemp = dataDF["oilTemp"].iloc[0]
+            oilPress = dataDF["oilPressure"].iloc[0]
+            fuelTemp = dataDF["fuelTemp"].iloc[0]
+            coolantTemp = dataDF["coolantTemp"].iloc[0]
+            tyrePressFR = dataDF["tyrePressFR"].iloc[0]
+            tyrePressRR = dataDF["tyrePressRR"].iloc[0]
+            tyrePressRL = dataDF["tyrePressRL"].iloc[0]
+            tyrePressFL = dataDF["tyrePressFL"].iloc[0]
+        except Exception as e:
+            print(e)
+            oilTemp = poilTemp
+            oilPress = poilPress
+            fuelTemp = pfuelTemp
+            coolantTemp = pcoolantTemp
+            tyrePressFR = ptyrePressFR
+            tyrePressRR = ptyrePressRR
+            tyrePressRL = ptyrePressRL
+            tyrePressFL = ptyrePressFL
 
         
     
@@ -503,9 +563,30 @@ class Ui_MainWindow(object):
 if __name__ == "__main__":
     import sys
     app = QApplication(sys.argv)
+
+
     MainWindow = QMainWindow()
+    MainWindow.hide()
     ui = Ui_MainWindow()
     ui.setupUi(MainWindow)
-    MainWindow.show()
+
+    def go_to_main_window():
+        print("Video done. Transition to main window.")
+        opacity_effect = QGraphicsOpacityEffect(MainWindow)
+        MainWindow.setGraphicsEffect(opacity_effect)
+        opacity_effect.setOpacity(0)
+        MainWindow.show()
+
+        anim = QPropertyAnimation(MainWindow.opacity_effect, b"opacity")
+        anim.setDuration(1000)
+        anim.setStartValue(0)
+        anim.setEndValue(1)
+        anim.start()
+        MainWindow.animation = anim
+        splash.close()
+        ui.fade_in()
+        
+    splash = SplashVideo(go_to_main_window)
+
     sys.exit(app.exec_())
 
