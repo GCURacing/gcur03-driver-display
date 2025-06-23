@@ -1,2 +1,2 @@
-oilTemp,oilPressure,fuelTemp,coolantTemp,rpm,speed,tyrePressFL,tyrePressFR,tyrePressRL,tyrePressRR
-115,15,45,95,2000,0,24,15,6,21
+oilTemp,oilPressure,coolantTemp,rpm,speed
+130,30,75,8400,0

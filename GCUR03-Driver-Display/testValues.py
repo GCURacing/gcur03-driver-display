@@ -15,15 +15,28 @@ tyrePressRL = 30
 tyrePressRR = 20
 
 while x == 0:
+    for y in range(0,10):
+        rpm += 200
+        time.sleep(0.05)
+
+        if (rpm == 11000):
+            rpm = 4000
+
+        dataDF = pd.DataFrame({"oilTemp": [oilTemp], 
+                           "oilPressure": [oilPress],
+                           "coolantTemp": [coolantTemp], 
+                           "rpm": [rpm], 
+                           "speed": [speed],
+                           })
+        print(dataDF.head)
+        dataDF.to_csv("displayData.csv", index=False)
     oilTemp += 5
     oilPress -= 5
-    fuelTemp += 5
     coolantTemp += 5
     tyrePressFR -= 3
     tyrePressRR -= 3
     tyrePressRL -= 3
     tyrePressFL -= 3
-    rpm = 2000
     
     if (oilTemp == 150):
         oilTemp = 90
@@ -48,19 +61,3 @@ while x == 0:
         
     if (tyrePressRR <= 5):
         tyrePressRR = 30
-    time.sleep(1)
-
-    dataDF = pd.DataFrame({"oilTemp": [oilTemp], 
-                           "oilPressure": [oilPress], 
-                           "fuelTemp": [fuelTemp], 
-                           "coolantTemp": [coolantTemp], 
-                           "rpm": [rpm], 
-                           "speed": [speed], 
-                           "tyrePressFL": [tyrePressFL], 
-                           "tyrePressFR": [tyrePressFR], 
-                           "tyrePressRL": [tyrePressRL], 
-                           "tyrePressRR": [tyrePressRR]
-                           })
-
-    print(dataDF.head)
-    dataDF.to_csv("displayData.csv", index=False)
