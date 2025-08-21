@@ -4,13 +4,12 @@ from PyQt5 import QtCore
 from PyQt5.QtGui import (QBrush, QColor, QConicalGradient, QCursor, QFont,
     QFontDatabase, QIcon, QLinearGradient, QPalette, QPainterPath, QPen, QPainter, QPixmap,
     QRadialGradient)
-from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
-from PyQt5.QtMultimediaWidgets import QVideoWidget
+import PyQt5
 from PyQt5.QtWidgets import *
 import time
 import pandas as pd
 import sys, os, vlc
-
+os.environ["QT_QPA_PLATFORM"]="linuxfb"
 oilTemp = 90
 oilPress = 40
 coolantTemp = 75
@@ -49,18 +48,20 @@ class SplashVideo(QWidget):
         self.video_frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         # Setup VLC instance and player
-        self.instance = vlc.Instance()
+        self.instance = vlc.Instance('--vout','vmem')
         self.player = self.instance.media_player_new()
 
         video_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "media", "Intro.mp4")
-        media = self.instance.media_new(video_path)
+        print(video_path)
+        print(type(video_path))
+        media = self.instance.media_new(video_path, None)
         self.player.set_media(media)
 
         # Embed video in widget (platform-specific)
         if sys.platform.startswith("linux"):
-            self.player.set_xwindow(self.video_frame.winId())
+            self.player.set_xwindow(int(self.video_frame.winId()))
         elif sys.platform == "win32":
-            self.player.set_hwnd(self.video_frame.winId())
+            self.player.set_hwnd(int(self.video_frame.winId()))
         elif sys.platform == "darwin":
             self.player.set_nsobject(int(self.video_frame.winId()))
 
@@ -81,7 +82,7 @@ class SplashVideo(QWidget):
     def check_finished(self):
         if self.player.get_state() == vlc.State.Ended:
             self.check_timer.stop()
-            self.fade_out()
+            self.finish()
 
     def fade_out(self):
         self.anim = QPropertyAnimation(self.opacity_effect, b"opacity")
@@ -92,6 +93,8 @@ class SplashVideo(QWidget):
         self.anim.start()
 
     def finish(self):
+        self.player.stop()
+        self.player.release()
         self.on_finished()
         self.close()
 
@@ -181,7 +184,7 @@ class Ui_MainWindow(object):
         self.speedLabel.setObjectName(u"speedLabel")
         self.speedLabel.setGeometry(QRect(4, 10, 171, 41))
         self.speedLabel.setStyleSheet(u"color:white;\n"
-"font: 29pt \"Formula1\";\n"
+"font: 25pt \"Formula1\";\n"
 "")
         self.speedLabel.setAlignment(Qt.AlignCenter)
         self.leftView = QFrame(self.DriverDisplay)
@@ -380,7 +383,7 @@ class Ui_MainWindow(object):
         timer2.timeout.connect(self.updateVariables)
  
         # update the timer every tenth second
-        timer2.start(0.02)
+        timer2.start(1)
         
         #MainWindow.showFullScreen() 
 
@@ -412,12 +415,12 @@ class Ui_MainWindow(object):
     
     def showTime(self):
         global minutesRT, secondsRT
-        self.count += 1
+        self.count += 23
         
-        if (self.count == 1000):
+        if (self.count >= 1000):
             self.count = 0
             secondsRT += 1
-            if (secondsRT == 60):
+            if (secondsRT >= 60):
                 minutesRT += 1
                 secondsRT = 0
         
@@ -482,15 +485,26 @@ class Ui_MainWindow(object):
         else:
             self.oilPressureLabel_20.setStyleSheet(u"background-color: rgb(240, 0, 0)")
 
+class MyWindow(QMainWindow):
+	def __init__(self):
+		super().__init__()
+		self.ui = Ui_MainWindow()
+		self.ui.setupUi(self)
+		self.setCursor(Qt.BlankCursor)
+
+	def keyPressEvent(self, event):
+		if event.key() == Qt.Key_Space:
+			self.close()
+
+
 if __name__ == "__main__":
     import sys
     app = QApplication(sys.argv)
 
 
-    MainWindow = QMainWindow()
+    MainWindow = MyWindow()
     MainWindow.hide()
-    ui = Ui_MainWindow()
-    ui.setupUi(MainWindow)
+
 
     def go_to_main_window():
         print("Video done. Transition to main window.")
@@ -508,6 +522,6 @@ if __name__ == "__main__":
         splash.close()
         
     splash = SplashVideo(go_to_main_window)
-
+    
     sys.exit(app.exec_())
 
