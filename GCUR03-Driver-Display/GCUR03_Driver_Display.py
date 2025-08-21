@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import *
 import time
 import pandas as pd
 import sys, os, vlc
+import serial
 os.environ["QT_QPA_PLATFORM"]="linuxfb"
 oilTemp = 90
 oilPress = 40
@@ -429,33 +430,54 @@ class Ui_MainWindow(object):
         self.speedLabel_36.setText("{0:02}".format(minutesRT) + "." + "{0:02}".format(secondsRT) + ":" + "{0:03}".format(self.count))
         
     def updateVariables(self):
-        global oilTemp, oilPress, rpm, coolantTemp
+        global voltage, oilPress, rpm, coolantTemp, speed, other, gear
+
+        ser = serial.Serial("/dev/ttyUSB0",115200, timeout=1)
+
+        line = ''
+
+        for x in range(0,6):
+            line = ser.readline().decode('utf-8')
+
+        data = line.split(",")
         
-        poilTemp =  oilTemp
+        pSpeed =  speed
         poilPress = oilPress
         pRpm = rpm
         pcoolantTemp = coolantTemp
+        pVoltage = voltage
+        pOther = other
+        pGear = gear
         
         try:
-            dataDF = pd.read_csv("displayData.csv")
-            oilTemp = dataDF["oilTemp"].iloc[0]
-            oilPress = dataDF["oilPressure"].iloc[0]
-            rpm = dataDF["rpm"].iloc[0]
-            coolantTemp = dataDF["coolantTemp"].iloc[0]
+            speed = data[0]
+            oilPress = data[1]
+            rpm = data[2]
+            voltage = data[3]
+            coolantTemp = data[4]
+            other = data[5]
+            gear = data[6]
+
         except Exception as e:
             print(e)
-            oilTemp = poilTemp
+            speed = pSpeed
             oilPress = poilPress
             rpm = pRpm
             coolantTemp = pcoolantTemp
+            voltage = pVoltage
+            other = pOther
+            gear = pGear
 
         
     
         # showing text
-        self.speedLabel_23.setText(str(oilTemp))
+        self.speedLabel_23.setText(str(other))
         self.speedLabel_11.setText(str(oilPress))
         self.speedLabel_42.setText(str(rpm))
         self.speedLabel_17.setText(str(coolantTemp))
+        self.speedLabel_27.setText(str(voltage))
+        self.speedLabel.setText(str(speed))
+        self.gearLabel.setText(str(gear))
         
         if oilTemp <130 :
             self.oilPressureLabel_8.setStyleSheet(u"background-color: rgb(0, 240, 0)")
